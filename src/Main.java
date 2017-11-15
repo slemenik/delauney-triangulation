@@ -9,7 +9,7 @@ public class Main {
         System.out.println("Started...");
         List<Point> pointList = getParsedData();
         List<Triangle> triangulation = getTriangulation(pointList);
-        makeOBJ(triangulation, true);
+        makeOBJ(triangulation, false);
         System.out.println("Finished.");
     }
 
@@ -43,11 +43,13 @@ public class Main {
         List<Triangle> triangulation = new ArrayList<>();
         //super-triangle (http://page.mi.fu-berlin.de/faniry/files/faniry_aims.pdf -> 4.1.)
         double M = getMaximumAbsoluteCoordinate(pointList);
-        Triangle superTriangle = new Triangle(  new Point(3*M, 0,0, -1),
-                new Point(0,3*M, 0, -2),
-                new Point( -3*M, -3*M, 0, -3), -1);
+        Triangle superTriangle = new Triangle(  new Point(3*M, 0,0, 10),//-1
+                new Point(0,3*M, 0, 20),//-2
+                new Point( -3*M, -3*M, 0, 30), 10);//-3
         triangulation.add(superTriangle);
         for (Point point : pointList) {
+            System.out.println();
+            System.out.println("tocka" + point);
             LinkedList<Triangle> badTriangles = new LinkedList<>();
             HashMap<Edge, Integer> badEdges = new HashMap<>(); //integer counts num of same edges
             for (Triangle triangle : triangulation) {
@@ -71,7 +73,6 @@ public class Main {
                     } else {
                         badEdges.put(triangle.e3, 1);
                     }
-
                 }
             }
 
@@ -82,32 +83,38 @@ public class Main {
                     polygon.add(edge.getKey());
                 }
             }
+            System.out.println("poligon: " + polygon);
+            System.out.println("pred remove bad: " + triangulation);
             triangulation.removeAll(badTriangles);
+            System.out.println("po remove bad" + triangulation);
 
             for (Edge edge : polygon) {
                 Triangle newTriangle = new Triangle(point, edge.p1, edge.p2, triangleID++);
                 triangulation.add(newTriangle);
+                System.out.println("nov" + newTriangle);
             }
         }
+        System.out.println("Trikotnikov najprej " + triangulation.size() + triangulation);
         ArrayList<Triangle> solution = new ArrayList<>();
         for (Triangle triangle : triangulation){
-            if (    triangle.p1 != superTriangle.p1 &&
-                    triangle.p1 != superTriangle.p2 &&
-                    triangle.p1 != superTriangle.p3 &&
-                    triangle.p2 != superTriangle.p1 &&
-                    triangle.p2 != superTriangle.p2 &&
-                    triangle.p2 != superTriangle.p3 &&
-                    triangle.p3 != superTriangle.p1 &&
-                    triangle.p3 != superTriangle.p2 &&
-                    triangle.p3 != superTriangle.p3)
+            if (    !triangle.p1.equals(superTriangle.p1) &&
+                    !triangle.p1 .equals( superTriangle.p2) &&
+                    !triangle.p1 .equals( superTriangle.p3) &&
+                    !triangle.p2 .equals( superTriangle.p1) &&
+                    !triangle.p2 .equals( superTriangle.p2) &&
+                    !triangle.p2 .equals( superTriangle.p3)&&
+                    !triangle.p3 .equals( superTriangle.p1) &&
+                    !triangle.p3 .equals( superTriangle.p2) &&
+                    !triangle.p3 .equals( superTriangle.p3))
                 solution.add(triangle);
         }
+        System.out.println("Trikotnikov pol " + solution.size());
         return solution;
     }
 
     //Output and Implementation
     private static void makeOBJ(List<Triangle> triangles, boolean writeToFile) {
-
+        System.out.println(writeToFile);
         HashMap<Integer, String> vertexMap = new HashMap<>();//id=>"v x y z"
         ArrayList<String> faceList = new ArrayList<>();
         for (Triangle triangle : triangles) {
@@ -141,8 +148,8 @@ public class Main {
             }
         }
         System.out.println();
-        assert writer != null;
-        writer.println();
+        if (writeToFile) writer.println();
+
         for (String face : faceList){
             if (writeToFile){
                 writer.println(face);
@@ -150,7 +157,7 @@ public class Main {
                 System.out.println(face);
             }
         }
-        writer.close();
+        if (writeToFile) writer.close();
     }
 
     private static double getMaximumAbsoluteCoordinate(List<Point> pointList) {
@@ -227,7 +234,7 @@ public class Main {
         @Override
         public String toString() {
 
-            return "Triangle" + p1+p2+p3;// + ": points(" + this.p1 + "; " + this.p2 + "; " + p3;
+            return "T." + p1+","+p2+ ","+ p3;// + ": points(" + this.p1 + "; " + this.p2 + "; " + p3;
         }
     }
 
@@ -261,9 +268,15 @@ public class Main {
         }
 
         @Override
+        public int hashCode() {
+            return (p1.toString() + " " + p2.toString()).hashCode();
+
+        }
+
+        @Override
         public String toString() {
 
-            return "Edge"+p1+p2 + "trikotnika " + t;
+            return "E."+p1+"," + p2 + "(" + t+")";
         }
     }
 
@@ -287,7 +300,7 @@ public class Main {
 
         @Override
         public String toString() {
-            return "|Point" + id + "|" + "x= " + this.x + ", y = " + this.y + ", z = " + this.z;
+            return "P" + id;// + "|" + "x= " + this.x + ", y = " + this.y + ", z = " + this.z;
         }
 
         @Override
