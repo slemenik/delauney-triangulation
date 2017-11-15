@@ -8,7 +8,8 @@ public class Main {
 
         System.out.println("Started...");
         List<Point> pointList = getParsedData();
-        List<Triangle> triangulation = getTriangulation(pointList);
+        System.out.println(pointList.size());
+        HashSet<Triangle> triangulation = getTriangulation(pointList);
         makeOBJ(triangulation, false);
         System.out.println("Finished.");
     }
@@ -36,85 +37,68 @@ public class Main {
     }
 
     //3D surface reconstruction.
-    private static List<Triangle> getTriangulation(List<Point> pointList){
+    private static HashSet<Triangle> getTriangulation(List<Point> pointList){
 
         //Bowyer–Watson algorithm
         int triangleID = 1;
-        List<Triangle> triangulation = new ArrayList<>();
+        List<Triangle> triangulation = new LinkedList<>();
         //super-triangle (http://page.mi.fu-berlin.de/faniry/files/faniry_aims.pdf -> 4.1.)
         double M = getMaximumAbsoluteCoordinate(pointList);
-        Triangle superTriangle = new Triangle(  new Point(3*M, 0,0, 10),//-1
-                new Point(0,3*M, 0, 20),//-2
-                new Point( -3*M, -3*M, 0, 30), 10);//-3
+        Triangle superTriangle = new Triangle(  new Point(3*M, 0,0, -1),//-1
+                new Point(0,3*M, 0, -2),//-2
+                new Point( -3*M, -3*M, 0, -3), -1);//-3
         triangulation.add(superTriangle);
+        HashSet<Triangle> solution = new HashSet<>();
         for (Point point : pointList) {
-            System.out.println();
-            System.out.println("tocka" + point);
-            LinkedList<Triangle> badTriangles = new LinkedList<>();
-            HashMap<Edge, Integer> badEdges = new HashMap<>(); //integer counts num of same edges
-            for (Triangle triangle : triangulation) {
+//            System.out.println();
+            if (point.id % 10000 == 0)System.out.println("tocka" + point);
+            HashSet<Edge> edge1stAppearance = new HashSet<>(); //integer counts num of same edges
+            HashSet<Edge> polygon = new HashSet<>();
+
+            Iterator<Triangle> i = triangulation.iterator();
+            while (i.hasNext()) {
+                Triangle triangle = i.next();
                 if (inCircle(point, triangle.p1, triangle.p2, triangle.p3)) {
-                    badTriangles.add(triangle);
-
-                    if (badEdges.containsKey(triangle.e1)) {
-                        badEdges.put(triangle.e1, badEdges.get(triangle.e1) + 1);
-                    } else {
-                        badEdges.put(triangle.e1, 1);
+                    i.remove();
+                    solution.remove(triangle);
+                    if (edge1stAppearance.contains(triangle.e1)) {//already appeared - will NOT be in polygon
+                        //edge is not shared by any other triangles in badTriangles
+                        polygon.remove(triangle.e1);
+                    } else {//1st appearance
+                        edge1stAppearance.add(triangle.e1);
+                        polygon.add(triangle.e1);
                     }
 
-                    if (badEdges.containsKey(triangle.e2)) {
-                        badEdges.put(triangle.e2, badEdges.get(triangle.e2) + 1);
+                    if (edge1stAppearance.contains(triangle.e2)) {
+                        polygon.remove(triangle.e2);
                     } else {
-                        badEdges.put(triangle.e2, 1);
+                        edge1stAppearance.add(triangle.e2);
+                        polygon.add(triangle.e2);
                     }
 
-                    if (badEdges.containsKey(triangle.e3)) {
-                        badEdges.put(triangle.e3, badEdges.get(triangle.e3) + 1);
+                    if (edge1stAppearance.contains(triangle.e3)) {
+                        polygon.remove(triangle.e3);
                     } else {
-                        badEdges.put(triangle.e3, 1);
+                        edge1stAppearance.add(triangle.e3);
+                        polygon.add(triangle.e3);
                     }
                 }
             }
-
-            //edge is not shared by any other triangles in badTriangles
-            LinkedList<Edge> polygon = new LinkedList();
-            for (Map.Entry<Edge, Integer> edge : badEdges.entrySet()) {
-                if (edge.getValue() == 1) {
-                    polygon.add(edge.getKey());
-                }
-            }
-            System.out.println("poligon: " + polygon);
-            System.out.println("pred remove bad: " + triangulation);
-            triangulation.removeAll(badTriangles);
-            System.out.println("po remove bad" + triangulation);
 
             for (Edge edge : polygon) {
                 Triangle newTriangle = new Triangle(point, edge.p1, edge.p2, triangleID++);
                 triangulation.add(newTriangle);
-                System.out.println("nov" + newTriangle);
+                if (hasNoSuperTrianglePoint(newTriangle, superTriangle)) {
+                    solution.add(newTriangle);//assume it is solution, if not remove later
+                }
             }
         }
-        System.out.println("Trikotnikov najprej " + triangulation.size() + triangulation);
-        ArrayList<Triangle> solution = new ArrayList<>();
-        for (Triangle triangle : triangulation){
-            if (    !triangle.p1.equals(superTriangle.p1) &&
-                    !triangle.p1 .equals( superTriangle.p2) &&
-                    !triangle.p1 .equals( superTriangle.p3) &&
-                    !triangle.p2 .equals( superTriangle.p1) &&
-                    !triangle.p2 .equals( superTriangle.p2) &&
-                    !triangle.p2 .equals( superTriangle.p3)&&
-                    !triangle.p3 .equals( superTriangle.p1) &&
-                    !triangle.p3 .equals( superTriangle.p2) &&
-                    !triangle.p3 .equals( superTriangle.p3))
-                solution.add(triangle);
-        }
-        System.out.println("Trikotnikov pol " + solution.size());
         return solution;
     }
 
     //Output and Implementation
-    private static void makeOBJ(List<Triangle> triangles, boolean writeToFile) {
-        System.out.println(writeToFile);
+    private static void makeOBJ(HashSet<Triangle> triangles, boolean writeToFile) {
+
         HashMap<Integer, String> vertexMap = new HashMap<>();//id=>"v x y z"
         ArrayList<String> faceList = new ArrayList<>();
         for (Triangle triangle : triangles) {
@@ -158,6 +142,18 @@ public class Main {
             }
         }
         if (writeToFile) writer.close();
+    }
+
+    private static boolean hasNoSuperTrianglePoint(Triangle triangle, Triangle superTriangle){
+        return  (!triangle.p1.equals(superTriangle.p1) &&
+                !triangle.p1 .equals( superTriangle.p2) &&
+                !triangle.p1 .equals( superTriangle.p3) &&
+                !triangle.p2 .equals( superTriangle.p1) &&
+                !triangle.p2 .equals( superTriangle.p2) &&
+                !triangle.p2 .equals( superTriangle.p3)&&
+                !triangle.p3 .equals( superTriangle.p1) &&
+                !triangle.p3 .equals( superTriangle.p2) &&
+                !triangle.p3 .equals( superTriangle.p3));
     }
 
     private static double getMaximumAbsoluteCoordinate(List<Point> pointList) {
@@ -232,6 +228,11 @@ public class Main {
         }
 
         @Override
+        public int hashCode() {
+            return id;
+        }
+
+        @Override
         public String toString() {
 
             return "T." + p1+","+p2+ ","+ p3;// + ": points(" + this.p1 + "; " + this.p2 + "; " + p3;
@@ -254,6 +255,7 @@ public class Main {
                 this.p2 = p1;
             }else {
                 try {
+                    System.out.println("Napaka pri tockah: " + p1 + p2);
                     throw new Exception();
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -269,7 +271,10 @@ public class Main {
 
         @Override
         public int hashCode() {
-            return (p1.toString() + " " + p2.toString()).hashCode();
+            int hash = 7;
+            hash = 71 * hash + this.p1.hashCode();
+            hash = 71 * hash + this.p2.hashCode();
+            return hash;
 
         }
 
@@ -296,6 +301,17 @@ public class Main {
         public boolean equals(Object obj) {
             Point p = (Point) obj;
             return (p.x == this.x && p.y == this.y && p.z == this.z);
+        }
+
+        @Override
+        public int hashCode() {
+//            int hash = 7;
+//            hash = 71 * hash + Double.valueOf(this.x).hashCode();
+//            hash = 71 * hash + Double.valueOf(this.y).hashCode();
+//            hash = 71 * hash + Double.valueOf(this.z).hashCode();
+//            return hash;
+
+            return id;
         }
 
         @Override
