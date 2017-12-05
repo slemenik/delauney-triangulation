@@ -1,5 +1,5 @@
-# nrg-dn1
-First nrg homework
+# 1st homework
+Subject: Advanced computer graphics (Napredna računalniška grafika)
 
 
 ### 1. Introduction
